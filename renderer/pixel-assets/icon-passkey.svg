@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pass key">
+  <g fill="none" stroke="#b9f7c9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="22" cy="28" r="11"/>
+    <path d="M30 36 54 60M39 45l7-7M46 52l7-7"/>
+  </g>
+  <circle cx="22" cy="28" r="3" fill="#ffc98f"/>
+</svg>

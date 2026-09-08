@@ -1,0 +1,5 @@
+UI hard-debug validation — 2026-08-27
+
+The clean rebuild loaded successfully from file://. The sidebar exposes CHAT, AGENTS, PRIVATE, INFO, IDE, and TERMINAL. The DOM contains the chat form, Pass Key unlock control, agent run control, and both IDE/Terminal buttons. Programmatic clicks confirmed AGENTS and PRIVATE switch to their views without JavaScript errors.
+
+The file:// page reports API offline as expected because the Flask server is not serving the file page itself; Electron uses the same local API through the explicit file-origin API base.

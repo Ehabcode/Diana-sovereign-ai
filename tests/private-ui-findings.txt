@@ -1,0 +1,7 @@
+Private UI validation — 2026-08-26
+
+The renderer loaded icon-passkey.svg in the Pass Key island, unlocked panel, keyboard options, and sidebar.
+
+Calling setPrivateChatState(true, 'private-ui-test') produced badge PRIVATE // ACTIVE, aria-hidden=false, privateChatMode=true, privateChatUnlocked=true, and the supplied temporary session id. Calling setPrivateChatState(false) returned PRIVATE // LOCKED, aria-hidden=true, privateChatMode=false, privateChatUnlocked=false, and no session id.
+
+The local renderer loaded without JavaScript syntax errors in the current validation flow.

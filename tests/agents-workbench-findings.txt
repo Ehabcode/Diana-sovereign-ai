@@ -1,0 +1,5 @@
+Agents Workbench validation — 2026-08-26
+
+The local renderer opened the Agents panel and showed AGENT WORKBENCH, NEW TASK textarea, persona selector (TEXTY // EXPLAIN / CODING // BUILD), mode selector (AUTO ROUTE / LOCAL ONLY / WEB RESEARCH / KNOWLEDGE NOTE), RUN TASK, LIVE TASKS, NEW ROUTINE, daily/interval controls, and SAFE BY DEFAULT note.
+
+The panel action hooks present were: run, refresh, show-schedule, create-schedule. Static file rendering succeeded; task queue API was unavailable on file:// as expected because the Flask backend was not running in the browser validation context.

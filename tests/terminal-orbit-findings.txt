@@ -1,0 +1,3 @@
+Terminal orbit validation — 2026-08-27
+
+The Terminal window renders from file:// with the loading strip, Pixel D, Saturn body, orbit ring, and changing readout. After a later frame, the ring remains centered on the Saturn body while changing orientation; it does not translate across the logo. The readout changes from numeric characters to symbols and the status switches to DIANA TERMINAL // ACTIVE. The preview mode correctly avoids IPC errors; Electron mode uses the real terminal IPC.

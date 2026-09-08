@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diana // Booting</title>
+  <link rel="stylesheet" href="splash.css">
+</head>
+<body>
+  <main class="splash" aria-live="polite">
+    <div class="crt-lines" aria-hidden="true"></div>
+    <div class="boot-grid" aria-hidden="true"></div>
+    <div class="boot-label"><span>DIANA.SYSTEM</span><span>LOCAL BOOT SEQUENCE // 2.5 {BETA}</span></div>
+
+    <section class="logo-console" aria-label="Diana boot logo">
+      <div class="pixel-logo-wrap">
+        <svg class="pixel-logo" viewBox="0 0 420 300" role="img" aria-label="Saturn local core">
+          <defs>
+            <clipPath id="pixelDInner"><path d="M104 82H184C215 82 232 106 232 150S215 194 184 194H104Z"/></clipPath>
+            <filter id="pixelGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g class="pixel-d" filter="url(#pixelGlow)">
+            <rect class="pixel-piece" style="--i:0" x="88" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:1" x="104" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:2" x="120" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:3" x="136" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:4" x="152" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:5" x="168" y="50" width="16" height="16"/><rect class="pixel-piece" style="--i:6" x="184" y="50" width="16" height="16"/>
+            <rect class="pixel-piece" style="--i:7" x="88" y="66" width="16" height="16"/><rect class="pixel-piece" style="--i:8" x="88" y="82" width="16" height="16"/><rect class="pixel-piece" style="--i:9" x="88" y="98" width="16" height="16"/><rect class="pixel-piece" style="--i:10" x="88" y="114" width="16" height="16"/><rect class="pixel-piece" style="--i:11" x="88" y="130" width="16" height="16"/><rect class="pixel-piece" style="--i:12" x="88" y="146" width="16" height="16"/><rect class="pixel-piece" style="--i:13" x="88" y="162" width="16" height="16"/><rect class="pixel-piece" style="--i:14" x="88" y="178" width="16" height="16"/><rect class="pixel-piece" style="--i:15" x="88" y="194" width="16" height="16"/><rect class="pixel-piece" style="--i:16" x="88" y="210" width="16" height="16"/>
+            <rect class="pixel-piece" style="--i:17" x="104" y="210" width="16" height="16"/><rect class="pixel-piece" style="--i:18" x="120" y="210" width="16" height="16"/><rect class="pixel-piece" style="--i:19" x="136" y="210" width="16" height="16"/><rect class="pixel-piece" style="--i:20" x="152" y="210" width="16" height="16"/><rect class="pixel-piece" style="--i:21" x="168" y="210" width="16" height="16"/><rect class="pixel-piece" style="--i:22" x="184" y="210" width="16" height="16"/>
+            <rect class="pixel-piece" style="--i:23" x="200" y="66" width="16" height="16"/><rect class="pixel-piece" style="--i:24" x="216" y="82" width="16" height="16"/><rect class="pixel-piece" style="--i:25" x="232" y="98" width="16" height="16"/><rect class="pixel-piece" style="--i:26" x="248" y="114" width="16" height="16"/><rect class="pixel-piece" style="--i:27" x="248" y="130" width="16" height="16"/><rect class="pixel-piece" style="--i:28" x="248" y="146" width="16" height="16"/><rect class="pixel-piece" style="--i:29" x="232" y="162" width="16" height="16"/><rect class="pixel-piece" style="--i:30" x="216" y="178" width="16" height="16"/><rect class="pixel-piece" style="--i:31" x="200" y="194" width="16" height="16"/>
+            <rect class="pixel-piece accent-piece" style="--i:32" x="184" y="98" width="16" height="16"/><rect class="pixel-piece accent-piece" style="--i:33" x="200" y="114" width="16" height="16"/><rect class="pixel-piece accent-piece" style="--i:34" x="216" y="130" width="16" height="16"/><rect class="pixel-piece accent-piece" style="--i:35" x="200" y="146" width="16" height="16"/><rect class="pixel-piece accent-piece" style="--i:36" x="184" y="162" width="16" height="16"/>
+          </g>
+          <g class="pixel-saturn" clip-path="url(#pixelDInner)" filter="url(#pixelGlow)">
+            <ellipse class="saturn-ring" cx="181" cy="158" rx="48" ry="22"/>
+            <circle class="saturn-body" cx="181" cy="158" r="28"/><circle class="saturn-light" cx="173" cy="150" r="11"/><path class="saturn-shadow" d="M181 130A28 28 0 0 1 181 186A28 28 0 0 1 181 130Z"/>
+          </g>
+        </svg>
+      </div>
+      <div class="terminal-stream" aria-hidden="true">
+        <div class="stream-caption">SIGNAL // DIANA CORE</div>
+        <div class="stream-row" id="stream-a">01011010 11000101 00110110</div>
+        <div class="stream-row dim" id="stream-b">10010101 01101001 11001010</div>
+        <div class="stream-row dimmer" id="stream-c">00011101 10110010 01100101</div>
+      </div>
+    </section>
+
+    <div class="brand-line"><span>SATURN CORE</span><i>//</i><span>LOCAL INTELLIGENCE</span></div>
+    <div id="status">Starting local engine...</div>
+    <div id="detail">Preparing Diana services</div>
+    <div class="progress-track" aria-hidden="true"><div id="progress"></div></div>
+    <div class="footer"><span>LOCAL ONLY<br><span class="credit">made by Ehab.R</span></span><span id="version">BOOT SEQUENCE 01</span></div>
+  </main>
+  <script>
+    const status = document.getElementById('status');
+    const detail = document.getElementById('detail');
+    const progress = document.getElementById('progress');
+    const streams = [document.getElementById('stream-a'), document.getElementById('stream-b'), document.getElementById('stream-c')];
+    const digits = '0123456789';
+    const symbols = '01{}[]<>/\\|#$%*+=~^:;';
+    let reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    let streamTimer = null;
+    function randomLine(chars, length = 28) {
+      let value = '';
+      for (let i = 0; i < length; i += 1) value += chars[Math.floor(Math.random() * chars.length)];
+      return value;
+    }
+    function tickStream() {
+      const useSymbols = document.body.classList.contains('symbols-live');
+      const chars = useSymbols ? symbols : digits;
+      streams.forEach((node, index) => {
+        if (node) node.textContent = randomLine(chars, 25 + index * 3);
+      });
+      if (!reducedMotion) streamTimer = window.setTimeout(tickStream, useSymbols ? 110 : 62);
+    }
+    if (!reducedMotion) {
+      window.setTimeout(() => document.body.classList.add('symbols-live'), 2450);
+      streamTimer = window.setTimeout(tickStream, 200);
+    } else {
+      document.body.classList.add('symbols-live');
+    }
+        window.dianaSplash = {
+      update(payload = {}) {
+        if (payload.status) status.textContent = payload.status;
+        if (payload.detail) detail.textContent = payload.detail;
+        if (Number.isFinite(payload.progress)) progress.style.width = `${Math.max(0, Math.min(100, payload.progress))}%`;
+        if (payload.error) {
+          status.classList.add('error');
+          detail.classList.add('error');
+          detail.textContent = payload.error;
+        }
+        },
+      finish() {
+        if (streamTimer) window.clearTimeout(streamTimer);
+        document.body.classList.add('is-finishing');
+        window.setTimeout(() => { try { window.close(); } catch (_) {} }, 760);
+      }
+    };
+    window.addEventListener('beforeunload', () => { if (streamTimer) window.clearTimeout(streamTimer); });
+  </script>
+</body>
+</html>

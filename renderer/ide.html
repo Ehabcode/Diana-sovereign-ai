@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://127.0.0.1:* http://localhost:*;">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIANA.CODER // LOCAL IDE</title>
+<link rel="stylesheet" href="../vendor/xterm/xterm.css">
+<link rel="stylesheet" href="ide.css">
+<link rel="stylesheet" href="peak-liquid-glass.css">
+<link rel="stylesheet" href="apple-liquid-glass.css">
+</head>
+<body>
+    <div class="crt-noise" aria-hidden="true"></div>
+    <div class="drop-deck" id="drop-deck" aria-live="polite" aria-hidden="true">
+        <div class="drop-deck-card">
+            <div class="drop-deck-orbit" aria-hidden="true"><span>↧</span></div>
+            <div class="drop-deck-copy">
+                <span class="eyebrow" id="drop-eyebrow">DIANA // DROP DECK</span>
+                <strong id="drop-title">DROP FILES TO OPEN</strong>
+                <span id="drop-subtitle">Release to mount files into your workspace.</span>
+            </div>
+            <div class="drop-deck-pills"><span id="drop-file-count">READY</span><span>LOCAL ONLY</span></div>
+        </div>
+    </div>
+    <div class="command-palette" id="command-palette" aria-hidden="true">
+        <div class="command-palette-card" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+            <div class="command-palette-head">
+                <div><span class="eyebrow">DIANA // ACTION DECK</span><strong id="command-palette-title">COMMAND PALETTE</strong></div>
+                <button class="tbtn-mini" id="btn-close-command-palette" type="button" aria-label="Close command palette">✕</button>
+            </div>
+            <div class="command-search-shell"><span aria-hidden="true">⌕</span><input id="command-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search actions..." aria-label="Search commands"><kbd>ESC</kbd></div>
+            <div class="command-list" id="command-list" role="listbox" aria-label="Available commands"></div>
+            <div class="command-palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> NAVIGATE</span><span><kbd>ENTER</kbd> RUN</span><span><kbd>ESC</kbd> CLOSE</span></div>
+        </div>
+    </div>
+    <header class="topbar">
+        <div class="topbar-left">
+            <div class="brand-orb" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="brand">DIANA<span class="brand-dim">.CODER</span></span>
+            <span class="status-chip"><span class="dot online" id="conn-dot"></span> LOCAL NODE</span>
+        </div>
+        <div class="topbar-center">
+            <span class="workspace-kicker">ACTIVE WORKSPACE</span>
+            <strong id="project-path">NO PROJECT OPENED</strong>
+        </div>
+        <div class="topbar-right">
+            <button class="tbtn tbtn-command" id="btn-command-palette" type="button" title="Open command palette" aria-label="Open command palette"><span class="btn-glyph" aria-hidden="true">⌘</span><span>COMMAND</span><kbd>CTRL K</kbd></button>
+            <button class="tbtn tbtn-primary folder-action" id="btn-open-folder" title="Open a local project folder" aria-label="Open a local project folder"><span class="btn-glyph" aria-hidden="true">▱</span><span>OPEN FOLDER</span></button>
+            <button class="tbtn" id="btn-save"><span class="btn-glyph">↓</span> SAVE <kbd>CTRL S</kbd></button>
+            <button class="tbtn tbtn-run" id="btn-run-code" type="button" title="Run the active file in the terminal" aria-label="Run the active file in the terminal"><span class="btn-glyph run-glyph">▶</span><span>RUN CODE</span><kbd>F6</kbd></button>
+            <button class="tbtn" id="btn-toggle-terminal"><span class="btn-glyph">›_</span> TERMINAL</button>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <section class="panel file-explorer" id="file-explorer">
+            <div class="panel-title explorer-title">
+                <div><span class="eyebrow">01 // SYSTEM</span><strong>EXPLORER</strong></div>
+                <div class="panel-title-actions"><button class="tbtn-mini" id="btn-refresh-tree" type="button" title="Refresh project files" aria-label="Refresh project files">↻</button><span class="panel-led" aria-hidden="true"></span></div>
+            </div>
+            <div class="explorer-meta"><span>PROJECT FILES</span><span class="meta-code">READ / WRITE</span></div>
+            <div class="tree-root" id="tree-root">
+                <div class="empty-state"><span class="empty-state-icon">⌁</span><strong>NO PROJECT MOUNTED</strong><span>Use OPEN FOLDER or drop a project here.</span></div>
+            </div>
+            <div class="explorer-footer"><span class="footer-led"></span> SANDBOX READY <span class="footer-divider">//</span> LOCAL ONLY</div>
+        </section>
+
+        <section class="center-col">
+            <div class="editor-strip">
+                <div class="strip-label"><span class="strip-dot"></span> EDITOR CORE</div>
+                <div class="strip-hint">MONACO // SYNTAX ENGINE ONLINE</div>
+                <button class="tbtn tbtn-manage-files" id="btn-manage-files" type="button" aria-expanded="false" aria-controls="open-files-menu" title="Manage open files"><span class="btn-glyph">▤</span><span>OPEN FILES</span><span class="open-files-count" id="open-files-count">0</span></button>
+            </div>
+            <div class="tabs-row" id="tabs-row"></div>
+            <div class="open-files-menu" id="open-files-menu" aria-hidden="true">
+                <div class="open-files-card" role="dialog" aria-labelledby="open-files-title">
+                    <div class="open-files-menu-head">
+                        <div><span class="eyebrow">DIANA // FILE DECK</span><strong id="open-files-title">OPEN FILES</strong></div>
+                        <button class="tbtn-mini" id="btn-close-files-menu" type="button" aria-label="Close open files menu">✕</button>
+                    </div>
+                    <div class="open-files-list" id="open-files-list"></div>
+                    <div class="open-files-menu-foot"><span id="open-files-summary">0 FILES OPEN</span><button class="tbtn tbtn-danger" id="btn-close-all-files" type="button">CLOSE ALL</button></div>
+                </div>
+            </div>
+            <div class="editor-wrap" id="editor-wrap">
+                <div id="monaco-container"></div>
+                <div class="file-reveal-status" id="file-reveal-status" aria-hidden="true">
+                    <div class="file-reveal-card">
+                        <span class="file-reveal-orbit" aria-hidden="true"><span></span></span>
+                        <div class="file-reveal-copy"><span class="eyebrow" id="file-reveal-eyebrow">DIANA // FILE LINK</span><strong id="file-reveal-label">READING FILE</strong><span id="file-reveal-name">WAITING FOR CONTENT</span></div>
+                        <span class="file-reveal-progress" aria-hidden="true"></span>
+                    </div>
+                </div>
+                <div class="editor-empty" id="editor-empty">
+                    <div class="editor-empty-card">
+                        <div class="editor-empty-orbit" aria-hidden="true"><span>⌁</span></div>
+                        <span class="eyebrow">DIANA // EDITOR CORE</span>
+                        <strong>SELECT A FILE TO START</strong>
+                        <span>Mount a local project from the explorer or drop files anywhere.</span>
+                        <div class="editor-empty-shortcut"><kbd>OPEN FOLDER</kbd><span>→</span><kbd>SELECT FILE</kbd></div>
+                    </div>
+                </div>
+            </div>
+            <div class="close-file-confirm" id="close-file-confirm" aria-hidden="true">
+                <div class="close-file-card" role="dialog" aria-labelledby="close-file-title" aria-describedby="close-file-copy">
+                    <span class="close-file-orbit" aria-hidden="true">!</span>
+                    <span class="eyebrow">DIANA // UNSAVED LINK</span>
+                    <strong id="close-file-title">UNSAVED FILE</strong>
+                    <span id="close-file-copy">This file has unsaved changes.</span>
+                    <div class="close-file-actions"><button class="tbtn" id="btn-cancel-close-file" type="button">CANCEL</button><button class="tbtn tbtn-warning" id="btn-discard-close-file" type="button">CLOSE WITHOUT SAVING</button><button class="tbtn tbtn-primary" id="btn-save-close-file" type="button">SAVE &amp; CLOSE</button></div>
+                </div>
+            </div>
+            <div class="terminal-panel" id="terminal-panel">
+                <div class="terminal-header"><div><span class="terminal-led"></span><span>TERMINAL</span><small>LOCAL SHELL</small></div><button class="tbtn-mini" id="btn-close-terminal" aria-label="Close terminal">✕</button></div>
+                <div id="xterm-container"></div>
+            </div>
+        </section>
+
+        <section class="panel chat-panel">
+            <div class="panel-title chat-title">
+                <div><span class="eyebrow">03 // COGNITIVE LINK</span><strong>DIANA CHAT</strong></div>
+                <span class="chat-live"><span class="dot online"></span> LIVE</span>
+            </div>
+            <div class="chat-mode-row">
+                <label for="persona-select"><span class="mode-icon">◈</span> RESPONSE MODE</label>
+                <select id="persona-select" aria-label="Diana response mode">
+                    <option value="texty">Texty</option>
+                    <option value="coding" selected>Coding</option>
+                </select>
+            </div>
+            <div class="chat-settings">
+                <label for="backend-url">BACKEND URL <span>LOCAL / REMOTE</span></label>
+                <div class="input-shell"><span class="input-prefix">↳</span><input type="text" id="backend-url" value="http://127.0.0.1:5000/chat" aria-label="Diana local backend URL" readonly></div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-msg diana"><span class="msg-meta">DIANA // READY</span><span>افتح ملف من الـ explorer واسألني عنه، أو اطلب مني أعدّل فيه واضغط Apply على الكود اللي هطلعهولك.</span></div>
+            </div>
+            <div class="chat-input-row">
+                <div class="input-caption"><span class="input-led"></span> ASK DIANA ABOUT YOUR CODE</div>
+                <textarea id="chat-input" placeholder="Write a request about the active file..." rows="3"></textarea>
+                <div class="chat-send-row"><span class="send-hint"><kbd>ENTER</kbd> SEND <span>//</span> <kbd>SHIFT ENTER</kbd> NEW LINE</span><button class="tbtn tbtn-send" id="btn-send-chat">SEND <span>↗</span></button></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../vendor/monaco-vs/loader.js"></script>
+    <script src="../vendor/xterm/xterm.js"></script>
+    <script src="../vendor/xterm-addon-fit/xterm-addon-fit.js"></script>
+    <script src="ide-renderer.js"></script>
+</body>
+</html>

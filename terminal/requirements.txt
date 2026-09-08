@@ -1,0 +1,21 @@
+# Core runtime
+requests>=2.31,<3
+
+# Optional but recommended for USB/storage/network inventory
+psutil>=5.9,<8
+pyserial>=3.5,<4
+pyusb>=1.2,<2
+colorama>=0.4,<1
+
+# Optional: VS Code Dark+-style syntax highlighting for code blocks in the terminal
+pygments>=2.17,<3
+
+# Optional: web_search and web_fetch tools (free, no API key)
+ddgs>=9.0,<10
+trafilatura>=1.12,<2
+
+# Optional voice playback
+sounddevice>=0.4,<1
+soundfile>=0.12,<1
+# torchaudio and chatterbox are intentionally not pinned here because their
+# compatible wheels depend on the selected PyTorch/CUDA environment.

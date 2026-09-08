@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diana Terminal</title>
+  <link rel="stylesheet" href="terminal.css">
+</head>
+<body>
+  <main class="terminal-app">
+    <header class="terminal-header">
+      <div class="brand-mark" aria-hidden="true"><span class="brand-dot"></span><span class="brand-ring"></span></div>
+      <div class="brand-copy"><strong>DIANA TERMINAL</strong><span>LOCAL SHELL // DIANA ACTIVE</span></div>
+      <div class="terminal-state"><i id="connection-dot"></i><span id="connection-label">LOCAL NODE // READY</span></div>
+    </header>
+
+    <section class="terminal-grid">
+      <section class="shell-panel panel" aria-label="Diana shell">
+        <div class="panel-head"><span>01 // SHELL</span><span id="shell-path">LOCAL SESSION</span></div>
+        <pre id="terminal-output" class="terminal-output" aria-live="polite">Diana Terminal // local shell
+Type a command and press Enter.
+
+</pre>
+        <form class="command-form" id="command-form">
+          <span class="prompt">›</span>
+          <input id="command-input" type="text" autocomplete="off" spellcheck="false" placeholder="Type a shell command..." aria-label="Shell command">
+          <button type="submit">RUN</button>
+        </form>
+      </section>
+
+      <section class="diana-panel panel" aria-label="Diana terminal chat">
+        <div class="panel-head"><span>02 // DIANA</span><span id="chat-state">TEXTY // READY</span></div>
+        <div id="diana-output" class="diana-output" aria-live="polite">
+          <article class="chat-line assistant"><span class="chat-role">DIANA</span><p>Terminal channel ready. Ask me about the shell, your code, or a local task.</p></article>
+        </div>
+        <form class="diana-form" id="diana-form">
+          <input id="diana-input" type="text" autocomplete="off" spellcheck="true" placeholder="Talk to Diana..." aria-label="Message Diana">
+          <button type="submit">SEND</button>
+        </form>
+      </section>
+    </section>
+
+    <footer class="terminal-footer"><span>LOCAL ONLY</span><span id="boot-readout">BOOT // 010101 // READY</span><span>ESC // CLEAR LINE</span></footer>
+  </main>
+  <script src="terminal.js"></script>
+</body>
+</html>

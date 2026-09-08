@@ -1,0 +1,13 @@
+UI refresh browser findings — 2026-08-26
+
+The local renderer loaded the new SVG icon sources correctly.
+Keyboard option sources: icon-power.svg, icon-chatting.svg, icon-sound.svg, icon-text-points.svg, icon-chat-input.svg, icon-send.svg, icon-folder.jpg, icon-hard-drive.jpg, icon-drive-alert.jpg, icon-passkey.jpg, icon-agents.svg, icon-codex.svg, icon-info.svg.
+Visible sidebar sources: folder, hard-drive, drive-alert, passkey, agents.svg, codex.svg, info.svg.
+The title has the requested 1px outline stroke and antialiasing.
+Texty label and voice icon are antialiased and use Segoe UI/Courier fallback.
+Both persona and voice lever buttons are 28px wide by 48px high and aligned with zero right margin.
+The lever track/handle still report image-rendering: pixelated from older CSS on the button subtree; a stronger final override is required for .lever-track and .lever-handle to remove pixelation.
+The live screenshot still shows legacy dotted red/yellow decorative borders in the chat panel; these should be softened/removed in the next CSS override while retaining the outlined title identity.
+
+Second pass findings:
+The renderer now reports image-rendering:auto for persona button, voice button, lever track, voice icons, and all SVG assets. Persona and voice buttons remain 28px x 48px. The title remains antialiased with a 1px outlined stroke. The red/yellow dotted rectangles in the browser screenshot are browser annotation boxes around interactive elements, not CSS borders from Diana.

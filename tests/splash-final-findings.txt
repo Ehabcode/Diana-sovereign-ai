@@ -1,0 +1,5 @@
+Splash final logo validation — 2026-08-27
+
+The splash rendered successfully from file:// with the new inline crisp-edges Pixel D/Saturn logo. At the initial frame, pixels enter diagonally from upper-left toward their final positions. After the staged reveal, the D and Saturn are visible and the adjacent terminal stream transitions from fast numeric strings to changing terminal symbols. The progress/status area remains readable beneath the logo and the page stays within the splash viewport.
+
+The browser validation used file://, so it confirmed markup/CSS/animation only. Electron's main process still controls the real transition after /health succeeds.

@@ -1,0 +1,9 @@
+Flask
+requests
+numpy
+soundfile
+sounddevice
+coqui-tts
+beautifulsoup4
+pypdf
+ebooklib

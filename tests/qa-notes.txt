@@ -1,0 +1,46 @@
+Diana QA — 2026-08-21
+
+- الصفحة المحلية فتحت بدون أخطاء ظاهرة.
+- Pass Key كان بيعرض تلميح ظاهر في الواجهة (اتشال بعدين لأسباب أمنية).
+- إدخال كود خاطئ أظهر PASS KEY // INVALID // RETRY WHEN READY مع حالة island حمراء/صفراء ثابتة بصريًا؛ لا يوجد رجوع تلقائي أثناء بقاء overlay مفتوحًا.
+- إدخال الكود الصحيح أظهر ACCESS GRANTED // OPENING وPASS KEY // VERIFIED، وظهر أثر glow أخضر حول منطقة Pass Key أثناء الانتقال.
+- الخلفية العامة لم تتغير.
+- الخطوة التالية: اختبار History/Flip Cards وVRAM الحي، ثم فحص الحزمة النهائية.
+
+تم إغلاق لوحة Pass Key بنجاح بعد اختبار الباس الصحيح، وعادت الواجهة للشات مع بقاء الـ sidebar متاحًا للاختبار.
+
+- لوحة History أصبحت تعرض العنوان CHATS بدل RECENT TRACE، وتظهر حالة فارغة مفهومة عند عدم وجود محادثات.
+- فتح لوحة CHATS وإغلاقها نجحا بصريًا، والـ panel أكبر وأكثر وضوحًا.
+
+- رسالة الاختبار أضيفت للشات، لكن Double Esc عبر ضغطتين منفصلتين في الاختبار الآلي لم يفعّل New Chat؛ السبب المحتمل أن نافذة 440ms بين الضغطتين لا تُحاكى بثبات عبر استدعاءات منفصلة. سأراجع المسار البرمجي وأختبر الحفظ بطريقة بديلة بدل تكرار نفس الضغط.
+
+- محاكاة keydown/keyup متتابعة لـ Double Esc داخل الصفحة نجحت: العنوان عاد إلى NEW CHAT وعدد الرسائل المرئية أصبح صفرًا، ما يؤكد أن منطق الحفظ يعمل وأن فشل الاختبار السابق كان من عدم إرسال keyup.
+
+- بعد New Chat رجعت الواجهة إلى NEW CHAT والرسائل اختفت كما ينبغي. زر إظهار الـ sidebar لم يبدّل الحالة في هذه اللقطة المعزولة، لذلك سأتحقق من panel state عبر DOM ومسار التنقل الموجود بدل تكرار الضغط نفسه.
+
+- فتح زر History مباشرة من DOM أظهر panel بعنوان CHATS وبطاقة محفوظة للمحادثة التجريبية. البطاقة كبيرة ومتباعدة، وجهها الأمامي يعرض CHAT 01 والعنوان والتاريخ، ووجهها الخلفي يعرض 2 MESSAGES وآخر رسالة.
+
+- لوحة VRAM تعمل وتعرض JS HEAP // LIVE DIAGNOSTIC بنسبة استخدام حية، JS HEAP USED/LIMIT، وتوضح بصراحة أن GPU VRAM غير متاح داخل المتصفح ويظهر N/A بدل رقم مضلل.
+
+- الفحص البرمجي أكد أن panel العام بعرض 738px، وPass Key بعرض 538px، وFlip Card بعرض 654px وارتفاع 196px في viewport الاختبار؛ الـ card موجودة داخل CHATS وقابلة للـ hover.
+
+- تمرير المؤشر فوق البطاقة قلبها فعليًا إلى الوجه الخلفي، والفحص البرمجي أكد transform ثلاثي الأبعاد matrix3d مع transition مدته 0.62s؛ عدد البطاقات المحفوظة في الاختبار 1.
+
+اختبار Pass Key الجديد: بعد إدخال الكود الصحيح، بقي passkey-overlay مفتوحًا، وتحولت passkey-island إلى opacity 0 وfilter blur(12px) مع pointer-events none، بينما passkey-unlocked-panel أصبحت is-open بوضوح كامل وopacity 1 وfilter blur(0) وبأبعاد 875×413 في viewport الاختبار. الانتقال يتم مباشرة داخل نفس الـ overlay بدون رجوع للخلف.
+
+اختبار blur العام: عند فتح CHATS يبدأ sidebar glass مؤقتًا بـ blur(9px) وopacity 0، وبعد 480ms يصبح blur(0px) وopacity 1 مع transform ثابت؛ الانتقال يعمل بسلاسة من غير تغيير في الخلفية أو layout.
+
+CHAT POINTS QA — 2026-08-21
+- الوجه الخلفي للكرت يعرض عنوان CHAT POINTS وPrompt شامل منظم بعناوين SESSION SNAPSHOT وWHAT THE USER IS TRYING TO DO وCONVERSATION CONTEXT وCONTINUATION RULES.
+- الضغط على جسم الكرت أعاد المحادثة المختارة إلى الشات، أغلق panel، وأظهر الحالة CHAT POINTS // CHAT RESTORED.
+- تم إضافة COPY PROMPT وOPEN CHAT مع ربط مباشر للأحداث وevent delegation.
+- تم تنظيف رسائل Connection error / Failed to fetch من prompt حتى لا تنتقل كجزء من سياق AI.
+- تم اختبار ظهور الكرت بصريًا بعد Double Esc داخل CHATS.
+
+CHAT MEMORY CONTROLS QA — 2026-08-21
+تم التحقق من وجود زر DELETE ALL وظهور CHAT POINTS على الوجه الخلفي لكل كرت. عند تنفيذ DELETE ALL مع التأكيد، أصبح chatHistory فارغًا واختفت البطاقات وظهرت حالة CHATS الفارغة. تم اختبار Shift + click على كرت، فاختفى الكرت بعد blur قصير وبقيت باقي المحادثات محفوظة. تم اختبار RENAME من الكارت وتحديث عنوانه في السجل وواجهة البطاقة. بعد فتح الكرت، تم تعديل CHAT TITLE مباشرةً من meta bar داخل الشات، وتحدّث الاسم في السجل المحفوظ. تحميل الصفحة اكتمل بحالة ready، وcontenteditable مفعّل لعنوان الشات، ولا توجد مؤشرات على خطأ syntax في DOM runtime.
+
+AUTO-SAVE + TEXT POINTS QA — 2026-08-21
+- الوجه الخلفي للكرت ظهر بصريًا بعنوان TEXT POINTS وبـ continuation prompt كامل، مع COPY PROMPT وRENAME وOPEN CHAT.
+- بعد إرسال سؤال اختبار، ظهر سجل محفوظ في localStorage بمحادثة واحدة ورسائل محفوظة وchatPoints موجودة، وتم تأكيد أن preview يحتوي بداية الـ prompt.
+- أضيفت lifecycle hooks لـ visibilitychange وpagehide وbeforeunload، بالإضافة إلى auto-save عند الرسائل، attachments، إخفاء sidebar، إغلاق panels، Pass Key، وText Points.

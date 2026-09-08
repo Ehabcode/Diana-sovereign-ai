@@ -1,0 +1,7 @@
+Sidebar panels validation — 2026-08-26
+
+Code History empty state now renders: CODE LAB // LOCAL, CODE WORKSPACE READY, three actions (CODING MODE, OPEN IDE, ASK DIANA), a three-step ASK/GENERATE/SAVE RESULT guide, and a QUICK TIP. File Items history remains available below it.
+
+VRAM Usage now renders: MEMORY CENTER // LIVE, RESOURCE PULSE, a live JS Heap meter, GPU VRAM as N/A when unavailable, JS Heap used/limit, and an honest service grid for Python API, Ollama local endpoint, XTTS-v2 on-demand, and model unload policy. The renderer test showed 9.5 MB JS heap used and 2.0 GB limit in the browser environment; GPU VRAM correctly remained N/A without nvidia-smi.
+
+The local renderer loaded the new panel markup without errors.

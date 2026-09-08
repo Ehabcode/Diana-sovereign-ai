@@ -1,0 +1,5 @@
+IDE/INFO validation — 2026-08-27
+
+The first console check ran against a stale browser document and correctly showed the old BUILD content. After reloading index.html?ide-info-v2, the current source contains the new VERSION row and DIANA // 2.5 {beta}. The sidebar IDE item is present with data-sidebar-item="ide" and the current handler routes it through window.diana.openIDE when running inside Electron.
+
+The Electron bridge cannot be invoked from file://; runtime behavior must be checked in Electron where preload.cjs exposes openIDE.

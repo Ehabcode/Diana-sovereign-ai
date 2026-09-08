@@ -1,0 +1,79 @@
+# ============================================================
+# Diana Project - .gitignore
+# ============================================================
+
+# ---------- Personal data & conversation memory (NEVER commit) ----------
+memory/
+*.memory.json
+*_memory.json
+*.summary.json
+*.embeddings.jsonl
+.diana_checkpoints/
+.diana_trusted_commands.json
+plans/
+logs/
+logs/*.log
+*.log
+
+# ---------- Secrets & credentials ----------
+.env
+.env.*
+*.token
+**/DIANA_TELEGRAM_TOKEN*
+**/secrets.json
+**/passkey.config.js
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+.venv/
+venv/
+venv_fast/
+venv_quality/
+.pytest_cache/
+
+# ---------- Node / Electron ----------
+node_modules/
+backend/
+out/
+dist/
+build/
+
+# ---------- Model weights & caches (too large for git, download separately) ----------
+models/
+models/tts/
+models/ollama/
+ollama/blobs/
+wheels/
+*.gguf
+*.bin
+*.safetensors
+
+# ---------- Audio samples/output ----------
+assets/audio/*.wav
+assets/audio/*.mp3
+reference_voice.*
+**/reference_voice.*
+*.wav
+*.mp3
+
+# ---------- Legacy/backup snapshots ----------
+legacy/
+*.bak
+DianaProject_Icons_VRAM_Fixed/
+diana-terminal/
+
+# ---------- OS/editor cruft ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ---------- AI coding tool logs (dev-session history, not project code) ----------
+.aider.chat.history.md
+.aider.input.history
+.aider.conf.yml
+.aider*

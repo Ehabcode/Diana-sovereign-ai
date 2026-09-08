@@ -1,0 +1,52 @@
+{
+  "name": "diana-local-desktop",
+  "version": "2.5.6-beta",
+  "description": "Diana local-first desktop AI app",
+  "main": "app/main.cjs",
+  "author": "Ehab.R",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.3",
+    "@electron-forge/maker-squirrel": "^7.8.3",
+    "@electron-forge/maker-zip": "^7.8.3",
+    "electron": "^37.2.6"
+  },
+  "config": {
+    "forge": {
+      "packagerConfig": {
+        "asar": true,
+        "extraResource": [
+          "renderer",
+          "python",
+          "terminal",
+          "ollama",
+          "vendor"
+        ],
+        "ignore": [
+          "^/python/.*",
+          "^/backend/.*",
+          "^/models/.*",
+          "^/ollama/.*",
+          "^/node_modules/.*"
+        ]
+      },
+      "makers": [
+        {
+          "name": "@electron-forge/maker-squirrel",
+          "config": {
+            "name": "diana_local_desktop"
+          }
+        },
+        {
+          "name": "@electron-forge/maker-zip",
+          "platforms": ["win32", "linux", "darwin"]
+        }
+      ]
+    }
+  }
+}

@@ -23,7 +23,7 @@ from android_adb import (
     run_adb,
     validate_package_name,
 )
-from network import local_network_inventory
+from network import local_network_inventory, local_open_ports, local_network_scan
 from usb import list_directory as usb_list_directory
 from usb import list_removable_mounts
 
@@ -91,7 +91,7 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 # in the web UI.
 sys.path.insert(0, PROJECT_DIR)
 from personas import (
-    SYSTEM_PROMPT_TEXTY, TEXTY_MODEL, TEXTY_FALLBACKS, TEXTY_OPTIONS,
+    SYSTEM_PROMPT_TEXTY_TERMINAL, TEXTY_MODEL, TEXTY_FALLBACKS, TEXTY_OPTIONS,
     build_time_context_note,
 )
 
@@ -325,6 +325,70 @@ def spin_logo_while(stop_event, steps_per_turn=28, frame_delay=0.026):
         time.sleep(frame_delay)
     _clear_block(len(_LOGO_ART_PADDED))
 
+# ---------- Purple rain: the everyday "thinking" indicator ----------
+# Falling-sand style: every non-empty cell drops one row per frame if the
+# cell below it is empty; once it lands on the floor or on top of another
+# settled character, it just stays there - that's what makes it visibly
+# "fall and pile up" instead of endlessly scrolling through. Brightness is
+# keyed to row (fresh/falling = bright near the top, settled/resting =
+# dim near the bottom), so no per-character age bookkeeping is needed.
+_RAIN_WIDTH = 30
+_RAIN_HEIGHT = 5
+_RAIN_CHARS = "01/\\|_+-.:*<>ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_RAIN_SHADES = [_c(GRAY_LIGHT), _c(PURPLE_LIGHT), _c(PURPLE), _c(PURPLE_SOFT), _c(PURPLE_SOFT)]
+
+def _rain_step(grid):
+    for col in range(_RAIN_WIDTH):
+        for row in range(_RAIN_HEIGHT - 2, -1, -1):
+            if grid[row][col] != " " and grid[row + 1][col] == " ":
+                grid[row + 1][col] = grid[row][col]
+                grid[row][col] = " "
+    for col in range(_RAIN_WIDTH):
+        if grid[0][col] == " " and random.random() < 0.12:
+            grid[0][col] = random.choice(_RAIN_CHARS)
+
+def _rain_is_full(grid):
+    return all(grid[_RAIN_HEIGHT - 1][col] != " " for col in range(_RAIN_WIDTH))
+
+def _draw_rain_frame(grid, first_frame):
+    if not first_frame:
+        print(f"\033[{_RAIN_HEIGHT}A", end="")
+    for row in range(_RAIN_HEIGHT):
+        shade = _RAIN_SHADES[row] if HAS_COLOR else ""
+        line = "".join(grid[row])
+        print(f"\r\033[2K{shade}{line}{C_RESET}")
+
+def spin_matrix_rain_while(stop_event, frame_delay=0.09):
+    """The everyday reply-waiting indicator: purple characters fall and
+    pile up at the floor; once the floor is full it clears and starts over.
+    Kept separate from spin_logo_while on purpose - the opening banner and
+    the first reply right after a persona switch still use the logo spin,
+    this one is only for ordinary replies."""
+    if not HAS_COLOR:
+        return
+    grid = [[" "] * _RAIN_WIDTH for _ in range(_RAIN_HEIGHT)]
+    first_frame = True
+    while not stop_event.is_set():
+        if _rain_is_full(grid):
+            grid = [[" "] * _RAIN_WIDTH for _ in range(_RAIN_HEIGHT)]
+        _rain_step(grid)
+        _draw_rain_frame(grid, first_frame)
+        first_frame = False
+        time.sleep(frame_delay)
+    _clear_block(_RAIN_HEIGHT)
+
+# Set right after a persona switch so the very next reply still uses the
+# familiar logo spin (consistent with the opening banner); every reply
+# after that uses the purple rain. Consumed (reset) the moment it's read.
+JUST_SWITCHED_PERSONA = False
+
+def pick_thinking_animation():
+    global JUST_SWITCHED_PERSONA
+    if JUST_SWITCHED_PERSONA:
+        JUST_SWITCHED_PERSONA = False
+        return spin_logo_while
+    return spin_matrix_rain_while
+
 def ollama_is_reachable():
     try:
         base = OLLAMA_URL.rsplit("/api/", 1)[0]
@@ -373,8 +437,15 @@ def handle_gpu():
     print(f"{C_SYSTEM}  Two things worth trying:{C_RESET}")
     print(f"{C_SYSTEM}  1. Lower num_ctx further (/model won't do this - edit "
           f"DIANA_CODING_NUM_CTX or the Modelfile){C_RESET}")
-    print(f"{C_SYSTEM}  2. Set OLLAMA_KV_CACHE_TYPE=q8_0 before starting 'ollama serve' - "
-          f"shrinks the context's own VRAM footprint{C_RESET}")
+    if CURRENT_PERSONA == "texty":
+        print(f"{C_SYSTEM}  2. start_ollama already sets OLLAMA_FLASH_ATTENTION=1 + "
+              f"OLLAMA_KV_CACHE_TYPE=q8_0 for you - if you started 'ollama serve' "
+              f"manually instead, set those two first, they shrink Texty's context "
+              f"VRAM footprint noticeably (qwen3 supports it).{C_RESET}")
+    else:
+        print(f"{C_SYSTEM}  2. Note: OLLAMA_FLASH_ATTENTION/KV_CACHE_TYPE (which "
+              f"start_ollama sets) don't help Diana Coding's qwen2.5-coder - that "
+              f"architecture isn't on Ollama's flash-attention allowlist yet.{C_RESET}")
 
 def query_vram_usage():
     """Raw hardware-level VRAM usage via nvidia-smi (used/total MB) - this is
@@ -463,8 +534,9 @@ MAX_EXCHANGES_SENT = 6  # how many past user-turns actually get sent to the
 SYSTEM_PROMPT_BASE = """You are Diana Coding - the engineering side of Diana, now
 running as a terminal-based coding agent with real tools.
 
-Be direct and technical, with a light touch of personality and humor - not
-stiff, not a comedian, just someone who's actually enjoyable to work with.
+Be relaxed and easygoing in how you talk - a bit more casual than a typical
+technical assistant, still sharp, direct, and technical, just genuinely
+comfortable to sit and work with, not stiff and not a comedian.
 When you're debugging, work through it calmly and directly - state what
 you're checking and why, without hedging every sentence. Confidence in HOW
 you talk doesn't mean skipping the verification of WHAT you claim - see the
@@ -543,13 +615,17 @@ list_android_devices, adb_device_info, adb_list_user_apps,
 adb_read_only_check, list_android_apps, pull_from_android (read-only, free),
 push_to_android (writes to the phone, confirmed), open_android_app
 (confirmed), network_inventory (local interface inventory only),
+check_open_ports (local listening ports/services only, no scanning),
+scan_local_network (ping-sweeps your own LAN only, confirmed),
 list_running_processes (free), open_application (confirmed), and
 close_application (confirmed, and refuses critical system processes outright).
 ADB discovery and read-only Android tools must be preferred over arbitrary adb
-shell commands. Never scan a network or change network settings through these
-tools. These only work if the relevant hardware/software is actually connected
-and available - if a tool errors out because adb or a device isn't found, say so
-plainly instead of pretending it worked.
+shell commands. Never change network settings, and never scan_local_network
+without the user actually asking for a device/network scan - it always needs
+their y/n anyway, but don't reach for it speculatively. These tools only work
+if the relevant hardware/software is actually connected and available - if a
+tool errors out because adb or a device isn't found, say so plainly instead
+of pretending it worked.
 
 Use them directly and naturally when a task calls for it - don't ask the
 user to paste file contents to you, just read the file yourself. Don't
@@ -558,7 +634,7 @@ describe what you're about to do in vague terms; call the tool.
 Tools that only read information (read_file, list_dir, search_files,
 list_removable_drives, usb_list_directory, list_android_devices,
 adb_device_info, adb_list_user_apps, adb_read_only_check, list_android_apps,
-pull_from_android, network_inventory, list_running_processes) run immediately without asking
+pull_from_android, network_inventory, check_open_ports, list_running_processes) run immediately without asking
 the user anything. Tools that write, execute, or change something
 (write_file, run_shell_command, push_to_android, open_android_app,
 open_application, close_application) will always ask the user for a y/n
@@ -578,8 +654,13 @@ assumptions about what a file probably contains.
 When you're done with a task, say so plainly and stop - don't keep calling
 tools "just to check" once the work is actually finished.
 
-Match the user's language for explanations - Arabic in, Arabic out; English
-in, English out. Code itself stays in English regardless.
+Language: default to clear English. If the user writes in a language that
+displays correctly in a plain terminal (English, French, Spanish, German,
+and similar Latin-script languages), you may reply in that same language.
+Never reply in Arabic or Persian, or any other right-to-left or non-Latin
+script, here - the terminal can't render it reliably - even if the user
+writes to you in one of those; acknowledge them in English instead. Code
+itself stays in English regardless. This restriction is terminal-only.
 
 No emojis.
 
@@ -611,6 +692,14 @@ if os.environ.get("DIANA_CODING_NUM_GPU"):
 # swap which one you're actually talking to, live, mid-session.
 CURRENT_PERSONA = "coding"  # default on startup, unchanged from before
 
+_PERSONA_DOT_COLOR = {"coding": _c(PURPLE_LIGHT), "texty": _c(PURPLE_PALE)}
+
+def input_prompt_label():
+    """The colored-dot prompt shown before you type - no 'You->' text,
+    just a dot (colored per persona) plus the persona name."""
+    dot = _PERSONA_DOT_COLOR.get(CURRENT_PERSONA, _c(PURPLE_LIGHT)) if HAS_COLOR else ""
+    return f"{dot}\u25cf{C_RESET} {C_YOU}{persona_label()}{C_RESET} {C_SYSTEM}\u276f{C_RESET} "
+
 def persona_label():
     return "Texty" if CURRENT_PERSONA == "texty" else "Diana Coding"
 
@@ -618,10 +707,13 @@ def build_system_prompt():
     """Coding: base agent prompt plus, if the current directory has a
     DIANA.md file, its contents appended as project context - read fresh
     every time this is called so switching /cwd or editing DIANA.md picks
-    up automatically. Texty: her prompt as-is, no project context - she's a
-    companion, not a project-aware agent."""
+    up automatically. Also appends Diana's own settings log (from Diana's
+    own repo root, not the current project's cwd) so she can answer "what
+    have you had customized" accurately in conversation. Texty: her prompt
+    as-is, no project context - she's a companion, not a project-aware
+    agent."""
     if CURRENT_PERSONA == "texty":
-        return SYSTEM_PROMPT_TEXTY
+        return SYSTEM_PROMPT_TEXTY_TERMINAL
     prompt = SYSTEM_PROMPT_BASE
     diana_md_path = os.path.join(os.getcwd(), "DIANA.md")
     if os.path.exists(diana_md_path):
@@ -632,7 +724,28 @@ def build_system_prompt():
                 prompt += f"\n\nProject context from DIANA.md:\n{project_context}"
         except Exception:
             pass
+    settings_log = read_settings_log()
+    if settings_log:
+        prompt += f"\n\nYour own applied customizations log (ground truth - quote from this, don't guess):\n{settings_log}"
     return prompt
+
+def read_settings_log():
+    """Diana's own settings/customizations log - always from her own repo
+    root (PROJECT_DIR), regardless of whatever project /cwd currently points
+    at. Returns "" if the file doesn't exist yet."""
+    path = os.path.join(PROJECT_DIR, "DIANA_SETTINGS.md")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+def handle_settings_command():
+    log = read_settings_log()
+    if not log:
+        print(f"{C_SYSTEM}[No settings log found yet at {os.path.join(PROJECT_DIR, 'DIANA_SETTINGS.md')}]{C_RESET}")
+        return
+    print(f"\n{C_SYSTEM}{log}{C_RESET}\n")
 
 def current_model_name():
     if MODEL_OVERRIDE:
@@ -916,6 +1029,22 @@ TOOLS = [
         "function": {
             "name": "network_inventory",
             "description": "Show local network interfaces and addresses only; never scans or changes networks.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_open_ports",
+            "description": "List ports this machine itself is listening on, with the owning process and a plain-English service guess (e.g. port 22 -> SSH). Reads the local connection table only - equivalent to running netstat yourself. Never sends a packet to another host and never scans anyone else's device.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scan_local_network",
+            "description": "Ping-sweeps the private LAN subnet(s) this machine is directly connected to, then reads the OS's own ARP table for MAC addresses and tries a reverse-DNS hostname for each device that answers. Restricted to the user's own home/private network - never anything beyond it. Always asks the user for y/n confirmation first, since it actively sends traffic to other devices.",
             "parameters": {"type": "object", "properties": {}}
         }
     },
@@ -1311,6 +1440,22 @@ def tool_network_inventory():
     except Exception as exc:
         return _json_result({"ok": False, "error": str(exc)})
 
+def tool_check_open_ports():
+    try:
+        return _json_result(local_open_ports())
+    except Exception as exc:
+        return _json_result({"ok": False, "error": str(exc)})
+
+def tool_scan_local_network():
+    print(f"\n{C_TOOL}[Diana wants to ping-sweep your own LAN to list connected devices]{C_RESET}")
+    confirm = input(f"{C_CONFIRM}This sends traffic to every device on your network - only your own private LAN, nothing beyond it. Proceed? (y/n) > {C_RESET}").strip().lower()
+    if confirm != "y":
+        return _json_result({"ok": False, "error": "User declined the network scan."})
+    try:
+        return _json_result(local_network_scan())
+    except Exception as exc:
+        return _json_result({"ok": False, "error": str(exc)})
+
 SEARCH_IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".venv",
                        "venv_fast", "venv_quality", "dist", "build", "project_memories",
                        ".diana_checkpoints"}
@@ -1585,6 +1730,36 @@ def handle_untrust(arg):
     save_trusted_commands(trusted)
     print(f"{C_SYSTEM}[Removed from trusted: {removed}]{C_RESET}")
 
+# Read-only commands (or read-only git subcommands) that are safe to
+# auto-run without a y/n prompt at all - even on the very first time, before
+# the user has ever /trust'ed anything. This is narrower than /trust: it's a
+# small fixed list picked because none of them can change project state, and
+# it never overrides the allowlist/dangerous-pattern checks that run first.
+SAFE_AUTO_COMMANDS = {"ls", "dir", "pwd", "cat", "type"}
+SAFE_AUTO_GIT_SUBCOMMANDS = {"status", "log", "diff", "branch", "show", "remote"}
+
+def is_safe_auto_command(command):
+    try:
+        segments = split_shell_segments(command)
+    except ValueError:
+        return False
+    if not segments:
+        return False
+    for segment in segments:
+        try:
+            words = shlex.split(segment, posix=(os.name != "nt"))
+        except ValueError:
+            return False
+        if not words:
+            return False
+        first = words[0].lower()
+        if first in SAFE_AUTO_COMMANDS:
+            continue
+        if first == "git" and len(words) > 1 and words[1].lower() in SAFE_AUTO_GIT_SUBCOMMANDS:
+            continue
+        return False
+    return True
+
 def tool_run_shell_command(command):
     if not is_allowed_command(command):
         log_rejected("run_shell_command", f"not on allowlist: {command}")
@@ -1597,6 +1772,9 @@ def tool_run_shell_command(command):
     risk_note = _shell_command_risk_note(command)
     if is_trusted_command(command):
         print(f"\n{C_TOOL}[Diana is running a trusted command:]{C_RESET}")
+        print(C_SYSTEM + command + C_RESET)
+    elif not risk_note and is_safe_auto_command(command):
+        print(f"\n{C_TOOL}[Diana is running a read-only command:]{C_RESET}")
         print(C_SYSTEM + command + C_RESET)
     else:
         print(f"\n{C_TOOL}[Diana wants to run this shell command:]{C_RESET}")
@@ -1842,7 +2020,7 @@ def run_sub_agent(role, task):
                 "keep_alive": KEEP_ALIVE,
                 "tools": SUB_AGENT_TOOLS
             }
-            message = ollama_chat(payload)
+            message = run_with_thinking_rain(ollama_chat, payload)
         except Exception as e:
             return f"[{label} error: {e}]"
 
@@ -1878,7 +2056,7 @@ PLANS_DIRNAME = "plans"
 READ_ONLY_TOOL_NAMES = {
     "read_file", "list_dir", "search_files", "web_search", "web_fetch",
     "list_removable_drives", "adb_device_info", "adb_list_user_apps",
-    "adb_read_only_check", "network_inventory", "usb_list_directory",
+    "adb_read_only_check", "network_inventory", "check_open_ports", "usb_list_directory",
     "list_android_devices", "list_android_apps", "pull_from_android",
     "list_running_processes",
 }
@@ -1929,7 +2107,7 @@ def run_plan_mode(task):
                 "options": CODING_OPTIONS,
                 "tools": PLAN_MODE_TOOLS,
             }
-            message = ollama_chat(payload)
+            message = run_with_thinking_rain(ollama_chat, payload)
         except Exception as e:
             print(f"{C_ERROR}[Plan mode error: {e}]{C_RESET}")
             return
@@ -1989,6 +2167,8 @@ TOOL_DISPATCH = {
     "adb_list_user_apps": lambda args: tool_adb_list_user_apps(args.get("serial", "")),
     "adb_read_only_check": lambda args: tool_adb_read_only_check(args.get("serial", "")),
     "network_inventory": lambda args: tool_network_inventory(),
+    "check_open_ports": lambda args: tool_check_open_ports(),
+    "scan_local_network": lambda args: tool_scan_local_network(),
     "usb_list_directory": lambda args: tool_usb_list_directory(args.get("path", ".")),
     "list_android_devices": lambda args: tool_list_android_devices(),
     "list_android_apps": lambda args: tool_list_android_apps(),
@@ -2050,7 +2230,15 @@ def build_outgoing_messages(history):
     pairs inside an exchange intact) - the full history on disk is untouched.
     Turns that fall out of this window aren't just dropped: they're rolled
     into a running summary (summarize_turns_with_model), which rides along
-    as a system message so older context isn't fully lost, just compressed."""
+    as a system message so older context isn't fully lost, just compressed.
+
+    The summarization call itself never blocks this reply - it used to run
+    right here, synchronously, before the actual reply even started, which
+    is exactly the silent multi-second freeze that showed up once a
+    conversation passed MAX_EXCHANGES_SENT turns: no spinner, no visible
+    reason, just a dead pause. Now the existing (slightly stale) summary is
+    used immediately and a background thread quietly refreshes it for next
+    turn - the reply this turn is never held up waiting on it."""
     system_msg = history[0]
     rest = history[1:]
     user_indices = [i for i, m in enumerate(rest) if m.get("role") == "user"]
@@ -2066,8 +2254,7 @@ def build_outgoing_messages(history):
         delta_start = user_indices[summarized_through] if summarized_through < len(user_indices) else 0
         delta = rest[delta_start:start]
         if delta:
-            summary = summarize_turns_with_model(delta, previous_summary=summary)
-            save_rolling_summary(summary, dropped_user_count)
+            _kick_off_background_summary(delta, summary, dropped_user_count)
 
     messages = [system_msg]
     if summary:
@@ -2078,6 +2265,31 @@ def build_outgoing_messages(history):
     return messages + kept
 
 # ---------- Rolling summary of trimmed-out history ----------
+_summary_lock = threading.Lock()
+_summary_in_progress = False
+
+def _kick_off_background_summary(delta, previous_summary, dropped_user_count):
+    """Fire-and-forget: runs summarize_turns_with_model on a background
+    thread so build_outgoing_messages never has to wait on it. If one is
+    already running, skip - the next turn will just catch up further in
+    one go once it finishes, nothing is lost."""
+    global _summary_in_progress
+    with _summary_lock:
+        if _summary_in_progress:
+            return
+        _summary_in_progress = True
+
+    def _worker():
+        global _summary_in_progress
+        try:
+            summary = summarize_turns_with_model(delta, previous_summary=previous_summary)
+            save_rolling_summary(summary, dropped_user_count)
+        finally:
+            with _summary_lock:
+                _summary_in_progress = False
+
+    threading.Thread(target=_worker, daemon=True).start()
+
 def summary_path_for_cwd():
     return memory_path_for_cwd() + ".summary.json"
 
@@ -2093,10 +2305,20 @@ def load_rolling_summary():
     return "", 0
 
 def save_rolling_summary(summary, summarized_through):
+    # Now written from a background thread (see _kick_off_background_summary)
+    # while the main thread may read it for the next turn - atomic
+    # write-then-rename avoids any chance of reading a half-written file.
     path = summary_path_for_cwd()
+    parent = os.path.dirname(path) or "."
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"summary": summary, "summarized_through": summarized_through}, f, ensure_ascii=False, indent=2)
+        fd, temp_path = tempfile.mkstemp(prefix=".diana-summary-", dir=parent, text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump({"summary": summary, "summarized_through": summarized_through}, f, ensure_ascii=False, indent=2)
+            os.replace(temp_path, path)
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
     except OSError:
         pass  # best-effort - a failed summary write just means the next call retries
 
@@ -2124,7 +2346,13 @@ def summarize_turns_with_model(turns, previous_summary=""):
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "keep_alive": KEEP_ALIVE,
-            "options": {"temperature": 0.2, "num_ctx": current_options().get("num_ctx", 8192)},
+            # This runs in the background now (see _kick_off_background_summary),
+            # but it still shares the same GPU as whatever's generating the
+            # visible reply, so keeping it lean matters: a short factual
+            # summary of a bounded excerpt never needs the full 8192-token
+            # context, and num_predict caps worst-case generation length so
+            # a rambly output can't drag this out longer than it needs to.
+            "options": {"temperature": 0.2, "num_ctx": 4096, "num_predict": 300},
         }
         message = ollama_chat(payload)
         return (message.get("content") or previous_summary).strip()
@@ -2314,6 +2542,73 @@ def speak_final_reply(text):
         except (PermissionError, FileNotFoundError):
             pass
 
+# ---------- Copy-to-clipboard for code Diana writes ----------
+# Best-effort: whichever OS clipboard tool is available. If none is found
+# (e.g. a headless Linux box with neither xclip nor wl-copy installed), the
+# code gets saved to a file instead so there's always some easy way to grab
+# it - never just silently give up.
+LAST_CODE_BLOCKS = []
+_CODE_BLOCK_PATTERN = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
+
+def extract_code_blocks(text):
+    return [block.rstrip("\n") for block in _CODE_BLOCK_PATTERN.findall(text or "")]
+
+def copy_to_clipboard(text):
+    try:
+        if os.name == "nt":
+            subprocess.run(["clip"], input=text, text=True, check=True, timeout=5)
+            return True
+        if platform.system() == "Darwin":
+            subprocess.run(["pbcopy"], input=text, text=True, check=True, timeout=5)
+            return True
+        for cmd in (["xclip", "-selection", "clipboard"], ["wl-copy"]):
+            try:
+                subprocess.run(cmd, input=text, text=True, check=True, timeout=5)
+                return True
+            except FileNotFoundError:
+                continue
+        return False
+    except Exception:
+        return False
+
+def _save_code_fallback(text):
+    path = os.path.join(PROJECT_ROOT, ".diana_last_code.txt")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+    except OSError:
+        return None
+    return path
+
+def offer_code_copy(reply_text):
+    """Call once per finished assistant reply. If it contained any fenced
+    code blocks, copies them (joined together) to the clipboard, or saves
+    them to a file if no clipboard tool is available on this machine."""
+    global LAST_CODE_BLOCKS
+    blocks = extract_code_blocks(reply_text)
+    if not blocks:
+        return
+    LAST_CODE_BLOCKS = blocks
+    combined = "\n\n".join(blocks)
+    if copy_to_clipboard(combined):
+        print(f"{C_SYSTEM}[Code copied to clipboard - just paste it. /copy to copy it again]{C_RESET}")
+    else:
+        path = _save_code_fallback(combined)
+        if path:
+            print(f"{C_SYSTEM}[No clipboard tool found - code saved to {path} instead]{C_RESET}")
+
+def handle_copy():
+    if not LAST_CODE_BLOCKS:
+        print(f"{C_SYSTEM}[No code block from the last reply to copy]{C_RESET}")
+        return
+    combined = "\n\n".join(LAST_CODE_BLOCKS)
+    if copy_to_clipboard(combined):
+        print(f"{C_SYSTEM}[Code copied to clipboard again]{C_RESET}")
+    else:
+        path = _save_code_fallback(combined)
+        if path:
+            print(f"{C_SYSTEM}[No clipboard tool found - code saved to {path} instead]{C_RESET}")
+
 def ollama_chat(payload):
     """Call Ollama with status checking, bounded retries, and clear failures."""
     last_error = None
@@ -2335,6 +2630,58 @@ def ollama_chat(payload):
             if attempt < 2:
                 time.sleep(1.5 * (attempt + 1))
     raise RuntimeError(f"Ollama request failed after 3 attempts: {last_error}")
+
+# ---------- CJK glitch guard (terminal is English-first; local models
+# occasionally drift into Chinese/Japanese/Korean mid-reply) ----------
+CJK_PATTERN = re.compile(
+    r"["
+    r"\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff"
+    r"\u3040-\u309f\u30a0-\u30ff"
+    r"\uac00-\ud7af"
+    r"\u3000-\u303f\uff00-\uffef"
+    r"]"
+)
+
+def contains_cjk(text):
+    return bool(CJK_PATTERN.search(text or ""))
+
+def strip_cjk(text):
+    cleaned = CJK_PATTERN.sub("", text or "")
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned.strip()
+
+class _CJKStreamAbort(Exception):
+    """Raised from inside on_token the instant a CJK character shows up in a
+    live-streamed reply, so the stream gets cut immediately instead of
+    printing a full paragraph of the glitch to the user first."""
+
+def _regenerate_without_cjk(payload, max_retries=2):
+    """Used only after a live stream got aborted for producing CJK text.
+    Retries non-streamed with an extra system nudge telling the model to
+    just continue in the language it was already using; if it still can't
+    manage that after a couple of tries, strips any remaining CJK characters
+    so the user is never shown the raw glitch either way."""
+    nudge = {
+        "role": "system",
+        "content": ("Your previous reply started producing Chinese/Japanese/"
+                    "Korean characters, which is a mistake - that has been "
+                    "discarded. Answer again from scratch, purely in the "
+                    "language you were already using (never CJK script)."),
+    }
+    retry_payload = dict(payload)
+    retry_payload["messages"] = list(payload["messages"]) + [nudge]
+    retry_payload["stream"] = False
+    message = None
+    for _ in range(max_retries):
+        message = ollama_chat(retry_payload)
+        if not contains_cjk(message.get("content")):
+            return message
+    cleaned = strip_cjk(message.get("content")) if message else ""
+    return {
+        "role": "assistant",
+        "content": cleaned or "[Reply kept glitching into another script - try rephrasing your message.]",
+        "tool_calls": None,
+    }
 
 def ollama_chat_stream(payload, on_token=None):
     """Same contract as ollama_chat (returns a message dict with role/content/
@@ -2379,7 +2726,7 @@ def run_with_thinking_rain(fn, *args, **kwargs):
     used for the sub-agent path, which still gets one blocking call and
     prints its whole report at once."""
     stop_event = threading.Event()
-    spin_thread = threading.Thread(target=spin_logo_while, args=(stop_event,), daemon=True)
+    spin_thread = threading.Thread(target=pick_thinking_animation(), args=(stop_event,), daemon=True)
     spin_thread.start()
     try:
         return fn(*args, **kwargs)
@@ -2401,7 +2748,7 @@ def run_agent_step_streamed(payload):
     harmless, just cosmetic.
     """
     stop_spinner = threading.Event()
-    spin_thread = threading.Thread(target=spin_logo_while, args=(stop_spinner,), daemon=True)
+    spin_thread = threading.Thread(target=pick_thinking_animation(), args=(stop_spinner,), daemon=True)
     spin_thread.start()
 
     state = {"started": False, "newlines": 0}
@@ -2415,9 +2762,16 @@ def run_agent_step_streamed(payload):
             state["started"] = True
         print(f"{C_DIANA}{token}{C_RESET}", end="", flush=True)
         state["newlines"] += token.count("\n")
+        if contains_cjk(token):
+            raise _CJKStreamAbort()
 
     try:
         message = ollama_chat_stream(payload, on_token=on_token)
+    except _CJKStreamAbort:
+        # State["started"] is always True here - a token had to be printed
+        # before it could be checked - so this always has something to erase.
+        _clear_block(state["newlines"] + 1)
+        return _regenerate_without_cjk(payload), False
     finally:
         if not state["started"]:
             stop_spinner.set()
@@ -2499,6 +2853,7 @@ def agent_chat(prompt):
             conversation_history.append({"role": "assistant", "content": reply_text})
             append_to_memory_index("assistant", reply_text, len(conversation_history) - 1)
             save_memory(conversation_history)
+            offer_code_copy(reply_text)
             speak_final_reply(reply_text)
             return
 
@@ -2590,6 +2945,8 @@ adb_device_info(serial)         - reads one authorized device, no confirmation
 adb_list_user_apps(serial)      - reads third-party packages, no confirmation
 adb_read_only_check(serial)     - reads state/battery/storage, no confirmation
 network_inventory()             - reads local interfaces only, no scan/change
+check_open_ports()               - lists what's listening on this machine, no scanning
+scan_local_network()             - ping-sweeps your own LAN for devices, asks y/n first
 usb_list_directory(path)        - reads a selected storage directory
 list_android_apps()             - lists installed apps on the device, no confirmation
 pull_from_android(remote,local) - copies a file FROM the phone, no confirmation
@@ -2658,11 +3015,47 @@ def preload_persona_model(target_persona):
     options = TEXTY_OPTIONS if target_persona == "texty" else CODING_OPTIONS
     threading.Thread(target=_warm_up_model, args=(model_name, options), daemon=True).start()
 
+_PERSONA_SWITCH_VERBS_AR = [
+    "بقى", "بقي", "ابقى", "ابقي", "خليكي", "خليك", "خلي",
+    "غيري", "غير", "بدلي", "بدل", "روحي", "روح",
+    "كوني", "كون", "اتحولي", "اتحول", "حولي", "حول",
+    "رجعي", "رجع", "ادخلي", "ادخل", "ادخلى", "شغلي", "شغل",
+    "فعّلي", "فعلي", "فعّل", "فعل", "استخدمي", "استخدم",
+    "عايزك تبقي", "عايزك تكون", "عاوزك تبقي", "عاوزك تكون",
+    "هات", "جيبي", "جيب", "افتحي", "افتح", "وديني", "وديني على",
+]
+_PERSONA_SWITCH_VERBS_EN = [
+    "switch to", "change to", "change into", "become", "go to", "go into",
+    "turn into", "switch mode", "switch persona", "set mode to",
+    "enter", "activate", "use", "load", "mode:", "persona:",
+]
+
+def detect_persona_switch(text):
+    """Best-effort natural-language persona switch, Arabic or English -
+    e.g. 'بقى كودينج' or 'switch to texty' - without needing '/coding' or
+    '/texty'. Requires an explicit switch verb NEXT TO the persona name, so
+    a message that just mentions "coding" in passing (e.g. a question about
+    a coding problem) is never mistaken for a switch request.
+    """
+    if not text or text.startswith("/"):
+        return None
+    lowered = text.lower()
+    target = None
+    if re.search(r"\bcoding\b", lowered) or "كودينج" in text or "كودنج" in text:
+        target = "coding"
+    elif re.search(r"\btexty\b", lowered) or "تكستي" in text:
+        target = "texty"
+    if not target:
+        return None
+    has_verb = (any(v in lowered for v in _PERSONA_SWITCH_VERBS_EN) or
+                any(v in text for v in _PERSONA_SWITCH_VERBS_AR))
+    return target if has_verb else None
+
 def handle_persona_switch(target):
     """Swap who you're talking to, live, without restarting the terminal.
     Each persona keeps its own memory file per project folder, so switching
     back and forth never mixes Diana Coding's and Texty's conversations."""
-    global CURRENT_PERSONA, conversation_history, MODEL_OVERRIDE
+    global CURRENT_PERSONA, conversation_history, MODEL_OVERRIDE, JUST_SWITCHED_PERSONA
     target = target.strip().lower()
     if target not in ("coding", "texty"):
         print(f"{C_ERROR}[Usage: /coding or /texty]{C_RESET}")
@@ -2673,6 +3066,7 @@ def handle_persona_switch(target):
     CURRENT_PERSONA = target
     MODEL_OVERRIDE = None  # a /model override doesn't follow you across a persona switch
     conversation_history = load_memory_for_cwd()  # loads/creates this persona's own memory file
+    JUST_SWITCHED_PERSONA = True  # keep the logo spin (not the purple rain) for the next reply
     label = "Texty" if target == "texty" else "Diana Coding"
     model = current_model_name()
     print(f"{C_SYSTEM}[Switched to {label} - model: {model}]{C_RESET}")
@@ -2709,9 +3103,31 @@ _HISTORY_MAX = 200
 
 SLASH_COMMANDS = [
     "/help", "/tools", "/texty", "/coding", "/model", "/cwd", "/clear",
-    "/log", "/checkpoints", "/undo", "/export", "/delegate",
-    "/voice on", "/voice off", "exit",
+    "/log", "/checkpoints", "/undo", "/export", "/delegate", "/copy",
+    "/settings", "/voice on", "/voice off", "exit",
 ]
+
+def correct_slash_command(text):
+    """Fuzzy-corrects a typo'd slash command (e.g. '/texy' -> '/texty').
+
+    Only touches input that already starts with '/' and doesn't exactly
+    match a known command - plain chat messages (including ones that happen
+    to contain a '/') are never rewritten. Cutoff of 0.6 is forgiving enough
+    for a dropped/swapped letter but won't fire on an unrelated command.
+    """
+    if not text.startswith("/"):
+        return text
+    head = text.split(" ", 1)[0].lower()
+    known_heads = sorted({c.split(" ", 1)[0] for c in SLASH_COMMANDS if c.startswith("/")})
+    if head in known_heads:
+        return text
+    match = difflib.get_close_matches(head, known_heads, n=1, cutoff=0.6)
+    if not match:
+        return text
+    corrected_head = match[0]
+    corrected = corrected_head + text[len(head):]
+    print(f"{C_SYSTEM}[Typo assumed: '{head}' \u2192 '{corrected_head}']{C_RESET}")
+    return corrected
 
 def get_completions(text):
     """Tab-completion candidates for the current input buffer: slash commands
@@ -2952,9 +3368,15 @@ if __name__ == "__main__":
     try:
         while True:
             timestamp = time.strftime("%H:%M")
-            user_input = input_with_history(f"{C_SYSTEM}[{timestamp}] {C_YOU}You\u2192{persona_label()} \u276f {C_RESET}").strip()
+            user_input = input_with_history(f"{C_SYSTEM}[{timestamp}] {C_RESET}{input_prompt_label()}").strip()
+            user_input = correct_slash_command(user_input)
 
-            if user_input.lower() == "exit":
+            switch_target = detect_persona_switch(user_input)
+            if switch_target:
+                handle_persona_switch(switch_target)
+                continue
+
+            if user_input.strip().lower() in ("exit", "/exit", "quit", "/quit"):
                 break
 
             if user_input.lower() == "/help":
@@ -3013,6 +3435,14 @@ if __name__ == "__main__":
                 handle_clear()
                 continue
 
+            if user_input.lower() == "/copy":
+                handle_copy()
+                continue
+
+            if user_input.lower() == "/settings":
+                handle_settings_command()
+                continue
+
             if user_input.lower().startswith("/log"):
                 handle_log(user_input[4:].strip())
                 continue
@@ -3058,5 +3488,8 @@ if __name__ == "__main__":
 
             agent_chat(user_input)
             print()
+    except KeyboardInterrupt:
+        print(f"\n{C_SYSTEM}[Ctrl+C - exiting]{C_RESET}")
     finally:
         _mute_listener_should_run.clear()
+    print(f"{C_SYSTEM}[Diana terminal closed]{C_RESET}")
